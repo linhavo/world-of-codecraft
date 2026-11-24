@@ -1,4 +1,5 @@
-// The dungeon view: replaces the village in the bottom strip while the focused hero works.
+// The dungeon view: replaces the village in the bottom strip while the focused hero works, waits for input or
+// casts (a background command still runs).
 // The room (art/donjon/salle.png, 1600x400) is centred and cropped; the hero stands at the anchor its
 // scene asks for (art/donjon/meta.json, with built-in fallbacks) and the scene's foe, dummy or shelf is
 // drawn beside it. Frames swap on ONE data timer (6 fps) that redraws only when a visible frame changes;
@@ -10,7 +11,7 @@ import { appHome, readTextFile } from "herdr";
 import { UI, C, heroTitle, hash, healthBar } from "./kit.js";
 import { HEROES } from "./heros-data.js";
 import { CREATURES } from "./creatures-data.js";
-import { species, boss, blowsFor, clsOf, recent, RESULT } from "./activite.js";
+import { species, boss, blowsFor, clsOf, recent, casting, RESULT } from "./activite.js";
 import { t as tr } from "./i18n.js";
 
 const ART = "mods/world-of-codecraft/art";
@@ -28,7 +29,7 @@ const FALLBACK = { hero: [620, 330], foe: [860, 330], dummy: [860, 330], shelf: 
 
 /** The hero's pose for a scene. */
 function poseOf(scene) {
-  if (scene === "pense") return "idle";
+  if (scene === "pense" || scene === "attend" || scene === "incante") return "idle";
   if (scene === "medite") return "rest";
   return "work";
 }
@@ -110,6 +111,7 @@ export class Donjon {
     st.allies = this.allies(s, t);
     st.nAllies = Math.max(s?.subs ?? 0, st.allies.length);
     st.ctx = this.ctx.act.ctxUsed(addr);
+    st.cast = scene === "incante" ? casting(s, t).map((b) => b.nom) : [];
     return st;
   }
 
@@ -177,7 +179,7 @@ export class Donjon {
   heroFx(st, head) {
     const out = [];
     if (st.scene === "eclaire") out.push(...this.archives(st, head));
-    if (st.scene === "medite") out.push(...this.trance(st.f, head));
+    if (st.scene === "medite" || st.scene === "incante") out.push(...this.trance(st.f, head));
     if (st.sealK >= 0) {
       out.push(div().absolute().left(-11).top(head - 44 - Math.min(st.sealK, 6) * 4).size(22).rounded_full().bg(C.wax).border_2().border_color("#6e1319")
         .child(div().absolute().left(5).top(5).size(8).rounded_full().bg(C.gold)));
@@ -285,6 +287,7 @@ export class Donjon {
       .child(div().text_size(18).text_color(C.woodInk).whitespace_nowrap().child(heroTitle(sel.h)))
       .child(div().text_size(15).text_color(C.inkSoft).whitespace_nowrap().child(act))
       .when(st.ctx != null, (el) => el.child(healthBar(st.ctx, 110, tr("hp"))))
+      .when(Boolean(st.cast?.length), (el) => el.child(div().text_size(14).text_color("#7a5ac8").whitespace_nowrap().child(tr("djSpell", st.cast[st.cast.length - 1], st.cast.length))))
       .when(st.nAllies > 0, (el) => el.child(div().text_size(14).text_color("#7a5ac8").whitespace_nowrap().child(tr("djAllies", st.nAllies))))
       .when(Boolean(foe?.B), (el) => el.child(div().text_size(14).text_color(C.wax).whitespace_nowrap().child(foe.name ? `${foe.name} · ${tr("djFoe", foe.left)}` : tr("djFoe", foe.left))));
   }
@@ -293,6 +296,8 @@ export class Donjon {
   bubbles(st, x, top) {
     const says = [];
     if (st.scene === "pense") says.push([["·", "· ·", "· · ·", "· · ·"][Math.floor((st.f ?? 0) / 3) % 4], C.parch, C.woodDark, [0, -2, -4, -2][(st.f ?? 0) % 4]]);
+    if (st.scene === "incante") says.push([`${tr("djCasting")}${[".", "..", "...", "..."][Math.floor((st.f ?? 0) / 3) % 4]}`, "#e6dcff", "#4a2a8a"]);
+    if (st.scene === "attend") says.push([`! ${tr("djAsk")}`, Math.floor((st.f ?? 0) / 3) % 2 ? C.goldLight : C.parch, C.wax]);
     if (st.sealed) says.push([tr("sealed"), C.goldLight, C.woodDark]);
     if (st.sent) says.push([tr("sent"), C.parch, C.woodDark]);
     if (st.res) says.push(st.ok ? [tr("testsOk"), "#d9f2c4", "#2f5a1c"] : [tr("testsKo"), C.parch, C.wax]);

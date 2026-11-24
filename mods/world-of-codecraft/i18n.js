@@ -118,8 +118,8 @@ const S = {
     // scenes
     ouch: "Ouch!", sealed: "Sealed!", sent: "Message sent!", testsOk: "Tests passed!", testsKo: "Tests failing",
     // dungeon view
-    dj: { pense: "Thinking", eclaire: "Searching the archives", combat: "In combat", medite: "Meditating", test: "Running tests", travail: "Working" },
-    djBoss: "Boss: forest troll", djAllies: (n) => `Allies: ${n}`, hp: "Health", djFoe: (n) => `Blows left: ${n}`,
+    dj: { pense: "Thinking", eclaire: "Searching the archives", combat: "In combat", medite: "Meditating", test: "Running tests", travail: "Working", attend: "Awaiting your orders", incante: "Casting a spell" },
+    djAsk: "Awaiting orders", djCasting: "Casting", djSpell: (nom, n) => (n > 1 ? `Spell: ${nom} (+${n - 1})` : `Spell: ${nom}`), djBoss: "Boss: forest troll", djAllies: (n) => `Allies: ${n}`, hp: "Health", djFoe: (n) => `Blows left: ${n}`,
   },
   fr: {
     village: "Valbrume",
@@ -194,8 +194,8 @@ const S = {
     demoTabs: ["revue PR", "tests", "migration", "doc", "repos", "carte", "tri", "build", "refonte", "correctif"],
     ouch: "Aïe !", sealed: "Scellé !", sent: "Message envoyé !", testsOk: "Tests réussis !", testsKo: "Tests en échec",
     // vue du donjon
-    dj: { pense: "Réfléchit", eclaire: "Fouille les archives", combat: "Au combat", medite: "Médite", test: "Lance les tests", travail: "Travaille" },
-    djBoss: "Boss : troll des bois", djAllies: (n) => `Alliés : ${n}`, hp: "Santé", djFoe: (n) => `Coups restants : ${n}`,
+    dj: { pense: "Réfléchit", eclaire: "Fouille les archives", combat: "Au combat", medite: "Médite", test: "Lance les tests", travail: "Travaille", attend: "Attend tes ordres", incante: "Lance un sort" },
+    djAsk: "Tes ordres ?", djCasting: "Incantation", djSpell: (nom, n) => (n > 1 ? `Sort : ${nom} (+${n - 1})` : `Sort : ${nom}`), djBoss: "Boss : troll des bois", djAllies: (n) => `Alliés : ${n}`, hp: "Santé", djFoe: (n) => `Coups restants : ${n}`,
   },
 };
 

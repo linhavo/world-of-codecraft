@@ -400,9 +400,11 @@ export default class Place {
     }
     const camX = this.cam(vw);
 
-    // the dungeon replaces the village while the focused hero works (not in immersion mode)
-    const dungeon = !imm && !hidden && sel?.a.status === "working";
-    this.act.watch(cx, order, !dungeon, !this.live);
+    // the dungeon replaces the village while the focused hero works, waits for an answer or casts (a background
+    // command still runs after the turn); not in immersion mode
+    const busy = sel?.a.status === "working" || sel?.a.status === "blocked" || this.act.scene(sel?.a.address) === "incante";
+    const dungeon = !imm && !hidden && busy;
+    this.act.watch(cx, order, !dungeon, !this.live, imm || hidden);
     this.act.watchCtx(cx, imm || hidden ? null : sel?.a.address);
     this.dg.sync(cx, dungeon, { sel, act: this.act, live: this.live });
 

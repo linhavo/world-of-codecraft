@@ -9,9 +9,13 @@ This fork of [kevinpardo/world-of-codecraft](https://github.com/kevinpardo/world
 - **No NPCs:** walkers, animals, birds, fish and chimney smoke are removed with their art (`ambiance.js` and 11 creature folders).
 - **No guards:** shell terminals no longer appear as warriors. Only agents are heroes.
 - **Buildings by district:** each district (space, in `spaces()` order) owns one building: tower, forge, temple, barn, barracks, market. A seventh district shares the tower again. All heroes of a district stand at its building, whatever their class or status. A banner shows the district name above the heroes.
-- **Dungeon trigger:** the dungeon shows automatically while the focused agent works. It is not a click or a key. Immersion mode keeps the village.
+- **Dungeon trigger:** the dungeon shows automatically while the focused agent works, waits for input or casts. It is not a click or a key. Immersion mode keeps the village.
+- **Waiting stays in the dungeon:** a question or a permission prompt makes Herdr report `blocked`. The hero stays in the dungeon, idles and shows an "Awaiting orders" bubble, so short prompts don't flip the view to the village.
+- **Background commands are spells:** a Bash the agent runs in the background keeps the hero in the dungeon after the turn ends. The hero idles inside orbiting runes, and the card names the command. The spell ends when the command's `<task-notification>` arrives, on `TaskStop`, or after 10 minutes (`CAST` in `activite.js`), because servers never report back.
+- **Completion notices are not new tasks:** Claude Code delivers a background command's `<task-notification>` as a prompt. The hook keeps the task number, the blows and the creature for it.
+- **User `!` commands are invisible:** they fire no hook event, so the hero cannot react to them.
 - **Dungeon animation:** one `cx.timer.every` at up to 6 fps steps every sprite and effect. It calls `notify` only when a visible frame changes. The dungeon uses no `.loop()`.
-- **Scene switching:** a new scene must be asked for 3 s and the current one must have run 6 s, so quick tool loops don't flicker. Compacting, tests and the end of work switch at once.
+- **Scene switching:** a new scene must be asked for 3 s and the current one must have run 6 s, so quick tool loops don't flicker. Compacting, tests, waiting for input, casting and the end of work switch at once.
 - **Scenes follow the activity hook:**
   - thinking: a "…" bubble;
   - reading: a tome at the shelf;
@@ -55,7 +59,7 @@ This fork of [kevinpardo/world-of-codecraft](https://github.com/kevinpardo/world
 - `tools/mirror_heroes.py`: writes the right-facing frames. Run it again after `tools/sync_heroes.py`.
 
 **Data the mod reads,** from `~/.local/state/world-of-codecraft/`:
-- `<terminal>.json`: activity, written by `integrations/claude-code/wocc-activity.py`. It now also records `allies: [{id, type}]`.
+- `<terminal>.json`: activity, written by `integrations/claude-code/wocc-activity.py`. It now also records `allies: [{id, type}]` and `bg: [{id, nom, t}]` (running background commands).
 - Agents on another machine (address `machine/t5`): the mod reads `t5.json` and `t5-ctx.json` in that machine's own `~/.local/state/world-of-codecraft/` through herdr-core. That machine needs the hooks from the owner's dotfiles.
 - `<terminal>-ctx.json`: `{"used", "size", "t"}` (context tokens in use, window size), written by a status-line wrapper. The wrapper lives in the owner's dotfiles (`claude/hooks/wocc-statusline.py`), not in this repo.
 
