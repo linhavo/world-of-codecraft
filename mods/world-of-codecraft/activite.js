@@ -21,10 +21,8 @@ import { home, readTextFile } from "herdr";
 import { hash, heroOf } from "./kit.js";
 
 const POLL = 1000;
-const STABLE = 8000; // the new scene must be asked for this long
-const HOLD = 15000; // and the current one must have lasted this long
-const STABLE_WALK = 20000; // a scene that makes the hero walk (to or from the forest edge) is stickier:
-const HOLD_WALK = 40000; // otherwise read / run / read loops send it back and forth
+const STABLE = 3000; // the new scene must be asked for this long
+const HOLD = 6000; // and the current one must have lasted this long, so quick tool loops don't flicker
 const FRESH = 15 * 60_000; // an activity file older than this is ignored
 const BLOWS = 4; // successful edits to fell a creature
 const BOSS_BLOWS = 8; // the troll's
@@ -148,8 +146,7 @@ export class Activites {
     if (want === st.scene) { st.cand = want; st.candSince = now; return false; }
     if (st.cand !== want) { st.cand = want; st.candSince = now; }
     const at_once = want === "medite" || want === "test" || want === null || st.scene === "medite";
-    const walk = want === "eclaire" || st.scene === "eclaire";
-    if (at_once || (now - st.candSince >= (walk ? STABLE_WALK : STABLE) && now - st.since >= (walk ? HOLD_WALK : HOLD))) {
+    if (at_once || (now - st.candSince >= STABLE && now - st.since >= HOLD)) {
       if (!want) this.scenes.delete(a.address);
       else { st.scene = want; st.since = now; }
       return true;

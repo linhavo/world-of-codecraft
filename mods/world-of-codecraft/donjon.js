@@ -177,7 +177,7 @@ export class Donjon {
   heroFx(st, head) {
     const out = [];
     if (st.scene === "eclaire") out.push(...this.archives(st, head));
-    if (st.scene === "medite") out.push(...this.trance(f, head));
+    if (st.scene === "medite") out.push(...this.trance(st.f, head));
     if (st.sealK >= 0) {
       out.push(div().absolute().left(-11).top(head - 44 - Math.min(st.sealK, 6) * 4).size(22).rounded_full().bg(C.wax).border_2().border_color("#6e1319")
         .child(div().absolute().left(5).top(5).size(8).rounded_full().bg(C.gold)));
