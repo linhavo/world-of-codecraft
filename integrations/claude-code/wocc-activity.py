@@ -13,6 +13,8 @@ Claude Code hook (async, never blocks). Writes ~/.local/state/world-of-codecraft
   allies   running subagents' {id, type} (type = agent_type, e.g. Explore, Plan, implementer), oldest first
   errTache tool failures this task (3+ = the next creature is a boss)
   essai    last test run {ok, t} (act "test" while it runs)   commitT / pushT  last git commit / push (ms)
+  bg       running background commands {id, nom, t}, oldest first: added when a Bash runs in the background,
+           removed by its <task-notification> prompt or a TaskStop (the hero casts a spell while they run)
 
 Outside Herdr (no HC_TERMINAL_ID) it does nothing. Subagents' own tool calls are ignored.
 """
@@ -35,6 +37,7 @@ name = ev.get("hook_event_name", "")
 tool = ev.get("tool_name") or ""
 sub = bool(ev.get("agent_id"))
 now = int(time.time() * 1000)
+BG_MAX = 3600_000  # a background command older than this is forgotten (servers never report back)
 cmd = str((ev.get("tool_input") or {}).get("command") or "") if tool == "Bash" else ""
 # drop heredoc bodies and quoted strings: only the commands themselves count
 cmd = re.sub(r"<<-?\s*['\"]?(\w+)['\"]?[^\n]*\n.*?\n\s*\1\b", " ", cmd, flags=re.S)
@@ -79,6 +82,7 @@ with open(os.path.join(DIR, ".lock"), "w") as lk:
     s.setdefault("tache", 0)
     s.setdefault("subs", 0)
     s.setdefault("allies", [])
+    s["bg"] = [b for b in s.get("bg", []) if now - b.get("t", 0) < BG_MAX]
 
     def act(a):
         if s.get("act") != a:
@@ -92,6 +96,11 @@ with open(os.path.join(DIR, ".lock"), "w") as lk:
         s["allies"] = [x for x in s["allies"] if x.get("id") != ev.get("agent_id")][-s["subs"]:] if s["subs"] else []
     elif sub:
         pass  # a subagent's own tools: the main hero's scene stays
+    elif name == "UserPromptSubmit" and str(ev.get("prompt") or "").lstrip().startswith("<task-notification>"):
+        # a background command reported back: not a new task, the creature and the blows stay
+        done = set(re.findall(r"<task-id>([^<]+)</task-id>", str(ev.get("prompt"))))
+        s["bg"] = [b for b in s["bg"] if b.get("id") not in done]
+        act("pense")
     elif name == "UserPromptSubmit":
         s.update(tache=s["tache"] + 1, coups=0, err=0, errTache=0)
         act("pense")
@@ -99,11 +108,19 @@ with open(os.path.join(DIR, ".lock"), "w") as lk:
         k = kind(tool)
         if k:
             act(k)
+        if tool in ("TaskStop", "KillShell"):
+            gone = (ev.get("tool_input") or {}).get("task_id") or (ev.get("tool_input") or {}).get("shell_id")
+            s["bg"] = [b for b in s["bg"] if b.get("id") != gone]
         s["outil"] = tool
     elif name == "PostToolUse":
         if tool in EDIT or tool == "Bash":  # every successful edit or command is a blow on the creature
             s["coups"] = s.get("coups", 0) + 1
         s["err"] = 0
+        bid = (ev.get("tool_response") or {}).get("backgroundTaskId") if isinstance(ev.get("tool_response"), dict) else None
+        if bid:
+            ti = ev.get("tool_input") or {}
+            nom = str(ti.get("description") or ti.get("command") or "")[:48]
+            s["bg"] = s["bg"][-7:] + [{"id": bid, "nom": nom, "t": now}]
         if TEST.search(cmd):
             s["essai"] = {"ok": True, "t": now}
         if COMMIT.search(cmd):
@@ -122,7 +139,7 @@ with open(os.path.join(DIR, ".lock"), "w") as lk:
         if ev.get("source") == "compact":
             act("pense")
         else:
-            s.update(subs=0, allies=[], err=0, coups=0)
+            s.update(subs=0, allies=[], err=0, coups=0, bg=[])
             act("fini")
     elif name == "Stop":
         s["subs"] = 0

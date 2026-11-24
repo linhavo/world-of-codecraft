@@ -10,12 +10,16 @@
 //   test     running tests       strikes a training dummy; passed = the dummy falls + "Tests passed!",
 //                                failed = "Tests failing" (the result stays 5 s, whatever the scene)
 //   travail  bash and the rest   the usual `work` loop
+//   attend   waiting for input   idle pose + "Awaiting orders" bubble (a question or a permission prompt)
+//   incante  turn over, but a     idle pose, orbiting runes + "Casting" bubble; stays in the dungeon up to
+//            background command  CAST per command (a server never reports back)
+//            still runs
 // plus, whatever the scene: a "Sealed!" bubble on a git commit and a "Sent" one on a git push.
 // Lot 2: six creatures in the draw (imp, wolf, goblin, boar, rust golem, spectre); a task with 3+ failed
 // tools brings the forest troll, a boss of 8 blows.
 // Anti-zapping: a scene changes only when the new one has been asked for 8 s and the current one has
 // lasted 15 s; 20 s / 40 s when it means going to or from the bookshelf (meditation, tests and the
-// end of work switch at once).
+// end of work and waiting for input switch at once).
 
 import { home, readTextFile } from "herdr";
 import { hash, heroOf } from "./kit.js";
@@ -41,15 +45,21 @@ const SPECIES = ["diablotin", "loup", "gobelin", "sanglier", "golem", "spectre"]
 export const DISTRICT = { atelier: ["golem", "gobelin"], grange: ["loup", "sanglier"], temple: ["spectre"], etal1: ["gobelin", "loup"] };
 const HOME = { artificier: "atelier", rodeur: "grange", pretre: "temple", voleur: "etal1" };
 export const clsOf = (a) => (a.demoHero ? { mage: "mage", artificer: "artificier", ranger: "rodeur", priest: "pretre", rogue: "voleur", warrior: "guerrier" }[a.demoHero.split("-")[1]] : heroOf(a.address, a.program).cls);
+const CAST = 10 * 60_000; // a background command keeps the hero casting at most this long
 export const RESULT = 5000; // a test result stays on screen this long
 const SCENE_OF = { pense: "pense", eclaire: "eclaire", web: "eclaire", code: "combat", commande: "combat", medite: "medite", test: "test" };
 export const boss = (s) => (s?.errTache ?? 0) >= BOSS_AFTER;
 export const blowsFor = (s) => (boss(s) ? BOSS_BLOWS : BLOWS);
 export const recent = (t, ms) => Boolean(t) && Date.now() - t < ms;
 
+/** The background commands still running (and younger than CAST) in an activity file. */
+export const casting = (s, now = Date.now()) => (s?.bg ?? []).filter((b) => now - (b.t ?? 0) < CAST);
+
 /** The scene the activity file asks for (null = the plain status behaviour). */
 function wanted(a, s, now) {
-  if (a.status !== "working" || !s || now - (s.t ?? 0) > FRESH) return null;
+  if (a.status === "blocked") return "attend";
+  if (a.status !== "working") return casting(s, now).length ? "incante" : null;
+  if (!s || now - (s.t ?? 0) > FRESH) return null;
   return SCENE_OF[s.act] ?? null;
 }
 
@@ -63,6 +73,8 @@ export class Activites {
     this.ctxs = new Map(); // address -> { used, t }: context tokens in use, from the status-line wrapper
     this.ctxAddr = null;
     this.ctxTimer = null;
+    this.seen = new Map(); // address -> last status seen, to read the file once more when it changes
+    this.settle = new Set(); // addresses whose status just changed
   }
 
   /** Context tokens an agent has in use, or null (no file, or older than FRESH). */
@@ -99,10 +111,16 @@ export class Activites {
   }
 
   /** Polls the activity files while some agent works; notifies only when something visible changes. */
-  watch(cx, list, hidden, off = false) {
+  watch(cx, list, hidden, off = false, away = hidden) {
     this.list = list;
     this.off = off;
-    const need = !hidden && !off && list.some((a) => a.status === "working" || this.scenes.has(a.address));
+    // a status change reads the file once, even off-screen: a turn that ends may leave a background command running
+    for (const a of list) {
+      if (this.seen.has(a.address) && this.seen.get(a.address) !== a.status) this.settle.add(a.address);
+      this.seen.set(a.address, a.status);
+    }
+    if (this.settle.size && !away && !off) cx.spawn((acx) => this.poll(acx));
+    const need = !hidden && !off && list.some((a) => a.status === "working" || a.status === "blocked" || this.scenes.has(a.address));
     if (need && !this.timer) this.timer = cx.timer.every(POLL, (cx) => this.poll(cx));
     else if (!need && this.timer) { this.timer.cancel(); this.timer = null; }
   }
@@ -115,7 +133,9 @@ export class Activites {
       const now = Date.now();
       for (const a of this.list ?? []) {
         if (a.demoAct) { changed = this.apply(a, a.demoAct, now) || changed; continue; }
-        if (a.status !== "working") { changed = this.apply(a, null, now) || changed; continue; }
+        const settle = this.settle.delete(a.address);
+        const live = a.status === "working" || a.status === "blocked" || settle || casting(this.files.get(a.address), now).length > 0;
+        if (!live) { changed = this.apply(a, null, now) || changed; continue; }
         let s = null;
         try { s = await readState(a.address, ".json"); } catch { s = null; }
         const old = this.files.get(a.address);
@@ -152,7 +172,7 @@ export class Activites {
     }
     if (want === st.scene) { st.cand = want; st.candSince = now; return false; }
     if (st.cand !== want) { st.cand = want; st.candSince = now; }
-    const at_once = want === "medite" || want === "test" || want === null || st.scene === "medite";
+    const at_once = ["medite", "test", "attend", "incante", null].includes(want) || ["medite", "attend", "incante"].includes(st.scene);
     if (at_once || (now - st.candSince >= STABLE && now - st.since >= HOLD)) {
       if (!want) this.scenes.delete(a.address);
       else { st.scene = want; st.since = now; }
