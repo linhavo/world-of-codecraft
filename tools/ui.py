@@ -603,6 +603,9 @@ ICONS = {
     'zoom': ['XXXX...XXXX', 'XX.......XX', 'X.X.....X.X', 'X.........X', '...........', 'X.........X', 'X.X.....X.X', 'XX.......XX', 'XXXX...XXXX'],
     'close': ['XX.......XX', 'XXX.....XXX', '.XXX...XXX.', '..XXX.XXX..', '...XXXXX...', '..XXX.XXX..', '.XXX...XXX.', 'XXX.....XXX', 'XX.......XX'],
     'plus': ['...XXX...', '...XXX...', '...XXX...', 'XXXXXXXXX', 'XXXXXXXXX', 'XXXXXXXXX', '...XXX...', '...XXX...', '...XXX...'],
+    'reduire': ['XXXXXXXXXXX', 'X.........X', 'X.........X', 'X.........X', 'XXXXXX....X', 'XXXXXX....X', 'XXXXXX....X', 'XXXXXX....X', 'XXXXXXXXXXX'],
+    'play': ['..XX.......', '..XXXX.....', '..XXXXXX...', '..XXXXXXXX.', '..XXXXXXXXX', '..XXXXXXXX.', '..XXXXXX...', '..XXXX.....', '..XX.......'],
+    'pause': ['..XXX.XXX..', '..XXX.XXX..', '..XXX.XXX..', '..XXX.XXX..', '..XXX.XXX..', '..XXX.XXX..', '..XXX.XXX..', '..XXX.XXX..', '..XXX.XXX..'],
     'suivant': ['XX...XX...', 'XXX..XXX..', '.XXX..XXX.', '..XXX..XXX', '..XXX..XXX', '.XXX..XXX.', 'XXX..XXX..', 'XX...XX...'],
 }
 

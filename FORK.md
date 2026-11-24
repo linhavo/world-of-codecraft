@@ -14,6 +14,8 @@ This fork of [kevinpardo/world-of-codecraft](https://github.com/kevinpardo/world
 - **Background commands are spells:** a Bash the agent runs in the background keeps the hero in the dungeon after the turn ends. The hero idles inside orbiting runes, and the card names the command. The spell ends when the command's `<task-notification>` arrives, on `TaskStop`, or after 10 minutes (`CAST` in `activite.js`), because servers never report back.
 - **Completion notices are not new tasks:** Claude Code delivers a background command's `<task-notification>` as a prompt. The hook keeps the task number, the blows and the creature for it.
 - **User `!` commands are invisible:** they fire no hook event, so the hero cannot react to them.
+- **Hero panel replaces the command panel:** the bottom strip's left panel shows only "Selected unit" and the hero's card, in the carved frame. Two small header buttons switch compact mode and animations. The minimap and the big Animations button are gone. Immersion mode still uses the old command panel with its minimap.
+- **Compact mode:** the panel's compact button, or `ctrl-shift-m`, hides the bottom strip so the terminal gets the full height. A 400 px panel (`place-mini`) shows in the left column under the quest board, in the command panel's carved frame. It shows one still scene and the hero's card: name, class, action or state, health, spells, allies and quest. In the village, the scene is the hero's building with only the hero in front. In the dungeon, it is the hero alone on the floor, animated by the current scene, without foe, allies or the dungeon card. Immersion mode ends compact mode.
 - **Dungeon animation:** one `cx.timer.every` at up to 6 fps steps every sprite and effect. It calls `notify` only when a visible frame changes. The dungeon uses no `.loop()`.
 - **Scene switching:** a new scene must be asked for 3 s and the current one must have run 6 s, so quick tool loops don't flicker. Compacting, tests, waiting for input, casting and the end of work switch at once.
 - **Scenes follow the activity hook:**
@@ -75,6 +77,7 @@ This fork of [kevinpardo/world-of-codecraft](https://github.com/kevinpardo/world
 - Allies stand close together and touch the hero at 1.25× scale. Spread them further left or draw them smaller.
 - Only the tower banner has been checked on screen. The banner positions for the other buildings are estimates.
 - Immersion mode has not been tested since the changes.
+- Compact mode has not been checked on screen: the scene crop (224×190) and the hero's position in it are estimates.
 - Only the dungeon card shows health; the village panel has no health bar.
 - `art/ic-parchemin.svg` and the i18n keys `village`, `accountNone` and `campfire` are unused but still in the tree.
 - `creatures-data.js` has no entry for the restored pigeon frames. Their sizes are a constant in `donjon.js`.

@@ -305,20 +305,23 @@ export class Donjon {
     return says.map(([text, bg, fg, dy = 0], i) => bubble(text, bg, fg, x, top - i * 26 + dy));
   }
 
-  /** The dungeon as a box filling its parent (vw x vh). */
-  view(vw, vh) {
+  /** The dungeon as a box filling its parent (vw x vh); `near` is the small box: the hero alone, centred, no foe, allies or card. */
+  view(vw, vh, near = false) {
     const st = this.state(Date.now());
     this.sig = JSON.stringify(st);
     const M = this.anchors();
     const { sel } = this.ctx;
     const s = this.ctx.act.file(sel.a.address) ?? sel.a.demoAct ?? null;
-    const ox = Math.round((vw - ROOM.w) / 2), oy = Math.round((vh - ROOM.h) / 2);
+    const stand = M[anchorOf(st.scene)];
+    // a small box keeps the hero centred, its feet 16 px above the bottom
+    const ox = near ? Math.round(vw / 2 - stand[0]) : Math.round((vw - ROOM.w) / 2);
+    const oy = near ? Math.round(vh - 16 - stand[1]) : Math.round((vh - ROOM.h) / 2);
     const at = (p) => [ox + p[0], oy + p[1]];
-    const [hx, hy] = at(M[anchorOf(st.scene)]);
-    const foe = this.foe(st, s, at(st.scene === "test" || (st.scene !== "combat" && st.res) ? M.dummy : M.foe));
+    const [hx, hy] = at(stand);
+    const foe = near ? null : this.foe(st, s, at(st.scene === "test" || (st.scene !== "combat" && st.res) ? M.dummy : M.foe));
     const info = HEROES[sel.key]?.anims?.[poseOf(st.scene)] ?? HEROES[sel.key]?.stand ?? { ay: 83 };
     const head = hy - info.ay * SC;
-    const al = st.allies ?? [];
+    const al = near ? [] : st.allies ?? [];
     const room = al.length && this.invoc ? "salle-invocation" : "salle";
     const spots = M.allies?.length ? M.allies.map(at) : SIDE.map(([dx, dy]) => [hx + dx, hy + dy]);
     return div().id("donjon").absolute().left(0).top(0).size_full().overflow_hidden().bg(al.length && !this.art ? "#241638" : "#14121a")
@@ -332,6 +335,6 @@ export class Donjon {
         .children(this.heroFx(st, -info.ay * SC)))
       .when(Boolean(foe), (el) => el.child(foe.el))
       .children(this.bubbles(st, hx + 24, head - 4))
-      .child(this.hud(st, foe));
+      .when(!near, (el) => el.child(this.hud(st, foe)));
   }
 }

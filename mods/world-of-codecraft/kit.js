@@ -4,10 +4,22 @@
 
 import { div, image, svg, PathBuilder, Background } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { home, readTextFile } from "herdr";
+import { home, readTextFile, layout, run } from "herdr";
 import { t, tbl } from "./i18n.js";
 
 export const ART = "mods/world-of-codecraft/art";
+
+/** A layout node by id, searched through the shown layout's tree. */
+export const layoutNode = (id, n = layout()) => (!n || typeof n !== "object" ? null : n.id === id ? n : (n.children ?? []).map((c) => layoutNode(id, c)).find(Boolean) ?? null);
+const shownNode = (id) => { try { const n = layoutNode(id); return Boolean(n && !n.hidden); } catch { return false; } };
+
+// Compact mode: the bottom village (place) hides so the terminal grows, and a small copy (place-mini) shows
+// in the left column. These are layout clicks, so the mode survives restarts.
+export const compact = () => shownNode("place-mini");
+export function setCompact(on) {
+  run(on ? "layout.hide" : "layout.show", { id: "place" });
+  run(on ? "layout.show" : "layout.hide", { id: "place-mini" });
+}
 export const TITLE = "Cinzel"; // Roman capitals, headings only (fonts/, OFL)
 export const UI = "Alegreya Sans"; // sturdy humanist text, everything else (fonts/, OFL)
 export const VILLAGE = "Valbrume";
