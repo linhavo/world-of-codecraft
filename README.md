@@ -43,8 +43,8 @@ herdr-app do layout.switch '{"name":"World-of-Codecraft"}'
 ```
 
 Then merge `mods/world-of-codecraft/KEYS.json` into your `keys.json`: `ctrl-shift-i`
-switches the immersive mode, `ctrl-shift-j` toggles the village and `ctrl-shift-b` toggles
-the left column. Run `tools/install.sh`
+switches the immersive mode, `ctrl-shift-m` switches the compact mode, `ctrl-shift-j` toggles
+the village and `ctrl-shift-b` toggles the left column. Run `tools/install.sh`
 again after a `git pull`. It installs real files, not symlinks: Herdr loads images and
 reloads mods only from real files inside its home.
 

@@ -9,8 +9,8 @@
 
 import { div } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { spaces, agents, run, props, layout, nextCommand, window as appWindow } from "herdr";
-import { VILLAGE, district, clip, heroOf, heroTitle, hourName, hhmm, isNight, readQuotas, left } from "./kit.js";
+import { spaces, agents, run, props, nextCommand, window as appWindow } from "herdr";
+import { VILLAGE, layoutNode, setCompact, compact, district, clip, heroOf, heroTitle, hourName, hhmm, isNight, readQuotas, left } from "./kit.js";
 import { P, DECO, TEXTE, bar, pic, txt, button, mark, banner } from "./ui.js";
 import { DEMO_SPACES } from "./demo.js";
 import { t, detectLang } from "./i18n.js";
@@ -18,11 +18,11 @@ import { t, detectLang } from "./i18n.js";
 // Immersive mode lives in the one layout: the big village (place-immersion) and the command panel
 // (commande) are shown, the bottom village (place) hidden, and the terminal (arene) shrinks to 400 px.
 // These are layout clicks, so the mode survives restarts.
-const node = (n, id) => (!n || typeof n !== "object" ? null : n.id === id ? n : (n.children ?? []).map((c) => node(c, id)).find(Boolean) ?? null);
 export function immersive() {
-  try { const n = node(layout(), "place-immersion"); return Boolean(n && !n.hidden); } catch { return false; }
+  try { const n = layoutNode("place-immersion"); return Boolean(n && !n.hidden); } catch { return false; }
 }
 function setMode(on) {
+  run("layout.hide", { id: "place-mini" }); // compact mode ends: both modes resize the same blocks
   run(on ? "layout.show" : "layout.hide", { id: "place-immersion" });
   run(on ? "layout.show" : "layout.hide", { id: "commande" });
   run(on ? "layout.hide" : "layout.show", { id: "place" });
@@ -42,8 +42,14 @@ export default class Fronton {
     };
     tick(cx);
     cx.timer.every(60_000, tick);
-    // ctrl-shift-i (KEYS.json): "world-of-codecraft.mode"
-    cx.spawn(async (cx) => { for (;;) { if ((await nextCommand()) === "mode") { setMode(!immersive()); cx.notify(); } } });
+    // KEYS.json: ctrl-shift-i "world-of-codecraft.mode", ctrl-shift-m "world-of-codecraft.compact"
+    cx.spawn(async (cx) => {
+      for (;;) {
+        const c = await nextCommand();
+        if (c === "mode") { setMode(!immersive()); cx.notify(); }
+        if (c === "compact" && !immersive()) setCompact(!compact());
+      }
+    });
   }
 
   /** An ornate plaque: icon in its gold socket, the value, a caption. */

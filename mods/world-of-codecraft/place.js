@@ -1,5 +1,5 @@
 // La place (bottom strip): Valbrume seen from above, isometric pixel art (direction A, v3).
-// Left, the RTS-style command panel: minimap (click to move the camera) and the selected unit.
+// Left, the hero panel (commande.js): the selected hero's card, compact mode and animations buttons.
 // Right, the village: the static world (ground, buildings, props, shadows, night lights) is baked
 // by tools/bake_world.py into a few big images, day and night, exactly as the approved mocks;
 // only the units, their markers, front cut-outs (depth), glows and district banners are live.
@@ -13,15 +13,16 @@
 import { div, image } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { agents, spaces, run, setAgentOrder, props, focused, layout, shared, setShared } from "herdr";
-import { UI, C, clip, heroOf, heroTitle, district, QUEST, sky, stop, pennant } from "./kit.js";
+import { UI, C, clip, heroOf, heroTitle, district, QUEST, sky, stop, pennant, setCompact } from "./kit.js";
 import { WORLD, TILES, FRONTS } from "./monde-data.js";
 import { HEROES } from "./heros-data.js";
 import { SPOTS, BUILDINGS, LABELS, market, GLOWS } from "./lieux.js";
 import { t as tr, detectLang } from "./i18n.js";
-import { Activites } from "./activite.js";
+import { Activites, casting } from "./activite.js";
 import { Donjon } from "./donjon.js";
 import { DEMO_LOG } from "./demo.js";
-import { commandPanel, MINI_INSET } from "./commande.js";
+import { heroPanel, MINI_SCENE } from "./commande.js";
+import { iconButton } from "./ui.js";
 import { EXT } from "./terre-data.js";
 
 const ART = "mods/world-of-codecraft/art";
@@ -131,7 +132,7 @@ export default class Place {
       const goal = goals.get(u.a.address);
       alive.add(u.a.address);
       this.mob.set(u.a.address, { goal, group: u.group });
-      out.push({ a: u.a, h: u.h, x: goal[0], y: goal[1], key: `${RACE_EN[u.h.race]}-${CLS_EN[u.h.cls]}` });
+      out.push({ a: u.a, h: u.h, group: u.group, x: goal[0], y: goal[1], key: `${RACE_EN[u.h.race]}-${CLS_EN[u.h.cls]}` });
     }
     for (const k of [...this.mob.keys()]) if (!alive.has(k)) this.mob.delete(k);
     return out;
@@ -183,7 +184,7 @@ export default class Place {
   }
 
   hidden() {
-    const id = props()?.immersion ? "place-immersion" : "place"; // two villages in the layout, one shown
+    const id = props()?.immersion ? "place-immersion" : props()?.mini ? "place-mini" : "place"; // three villages in the layout, one shown
     const find = (n) => (!n || typeof n !== "object" ? null : n.id === id ? n : (n.children ?? []).map(find).find(Boolean) ?? null);
     try { return Boolean(find(layout())?.hidden); } catch { return false; }
   }
@@ -252,25 +253,6 @@ export default class Place {
     const key = JSON.stringify(view);
     const now = Date.now();
     if (key !== this.viewKey && now - (this.viewAt ?? 0) > 300) { this.viewKey = key; this.viewAt = now; setShared("wocc.view", view); }
-  }
-
-  minimap(units, vw) {
-    const mw = PANEL - MINI_INSET, k = mw / WORLD.w, mh = Math.round(WORLD.h * k);
-    const col = { blocked: C.quest, done: C.gold, working: "#7dff6a", idle: "#cfc8da" };
-    const view = (vw / WORLD.w) * mw;
-    const vx = (this.cam(vw) / WORLD.w) * mw;
-    return div().id("minicarte").relative().w(mw).h(mh).flex_none().cursor_pointer()
-      .tooltip(tr("mapTip"))
-      .on_mouse_down("left", (e, cx) => {
-        const lx = e.local_position?.x;
-        if (typeof lx === "number") { this.camX = (lx / mw) * WORLD.w - vw / 2; this.manual = true; cx.notify(); }
-        cx.stop_propagation();
-      })
-      .child(image(`${MONDE}/minicarte.png`).absolute().left(0).top(0).w(mw).h(mh))
-      .children(units.map((u) => {
-        return div().absolute().left(u.x * k - 2).top(u.y * k - 3).size(4).bg(col[u.a.status] ?? "#ffffff").border_1().border_color("#000000");
-      }))
-      .child(div().absolute().left(vx).top(0).w(view).h(mh).border_1().border_color("#ffffff"));
   }
 
   /** Immersive layout: the world y at the top of the view, kept inside the painted bands. */
@@ -366,8 +348,46 @@ export default class Place {
     return [world, this.chronicle()];
   }
 
+  /** Compact mode: the hero's building with the hero in front of it, nobody else, a still picture (sw x sh). */
+  miniVillage(u, sw, sh, nightK, night) {
+    const box = BUILDINGS[u.group]?.box;
+    const mid = box ? (box[0] + box[2] / 2 + u.x) / 2 : u.x; // between the building and the hero
+    const left = Math.max(0, Math.min(WORLD.w - sw, Math.round(mid - sw / 2)));
+    const top = Math.min(0, Math.max(sh - WORLD.h, Math.round(sh - 16 - u.y))); // the hero's feet 16 px above the bottom
+    return div().id("mini-monde").absolute().left(-left).top(top).w(WORLD.w).h(WORLD.h)
+      .children(TILES.map((tl) => image(`${MONDE}/jour-${tl.k}.png`).absolute().left(tl.x).top(0).w(tl.w).h(WORLD.h)))
+      .when(nightK > 0, (el) => el.children(TILES.map((tl) => image(`${MONDE}/nuit-${tl.k}.png`).absolute().left(tl.x).top(0).w(tl.w).h(WORLD.h).opacity(nightK))))
+      .child(this.unit(u, false, night));
+  }
+
+  /** What the hero's card says: the dungeon action, health, running spells and allies. */
+  cardInfo(u, dungeon) {
+    if (!u) return null;
+    const addr = u.a.address;
+    const D = tr("dj");
+    const file = this.act.file(addr);
+    return {
+      action: dungeon ? D[this.act.scene(addr) ?? "travail"] ?? D.travail : null,
+      ctx: this.act.ctxUsed(addr),
+      spells: dungeon ? casting(file).map((b) => b.nom) : [],
+      allies: dungeon ? file?.subs ?? 0 : 0,
+    };
+  }
+
+  /** Compact mode: the hero panel fills the block, with the hero's scene (village or dungeon) above the card. */
+  compact(u, dungeon, buttons, { vw, nightK, nightHeroes }) {
+    const sh = MINI_SCENE.h;
+    const scene = !u ? null : dungeon ? this.dg.view(vw, sh, true) : this.miniVillage(u, vw, sh, nightK, nightHeroes);
+    return div().id("place").size_full()
+      .on_size_change((s, cx) => {
+        if (Math.abs(s.width - this.w) > 2 || s.height !== this.h) { this.w = s.width; this.h = s.height; cx.notify(); }
+      })
+      .child(heroPanel({ scene, sw: vw, sh, u, info: this.cardInfo(u, dungeon), buttons }));
+  }
+
   render(cx) {
     const at = new Date(this.now);
+    if (props()?.mini && this.w > 600) this.w = 262; // compact copy: start at the column width, not the strip's
     if (typeof props()?.heure === "number") at.setHours(props().heure, 0); // demo: another time of day
     const sk = sky(at);
     const nightK = sk.phase === "nuit" ? 1 : sk.phase === "jour" ? 0 : 0.55; // night layer over the day one
@@ -390,7 +410,8 @@ export default class Place {
     const sel = units.find((u) => u.a.address === (f?.agent ?? f?.terminal)) ?? units.find((u) => u.a.focused) ?? null;
     // immersive layout: the command panel is its own block (role "commande"), the village takes the full width
     const imm = Boolean(props()?.immersion);
-    const vw = Math.max(200, this.w - (imm ? 0 : PANEL));
+    const mini = !imm && Boolean(props()?.mini); // compact mode: the small copy in the left column, no command panel
+    const vw = mini ? this.w - MINI_SCENE.inset : Math.max(200, this.w - (imm ? 0 : PANEL));
     if (imm) this.bridge(units, vw);
     if (sel && sel.a.address !== this.lastFocus) {
       this.lastFocus = sel.a.address;
@@ -401,16 +422,24 @@ export default class Place {
     const camX = this.cam(vw);
 
     // the dungeon replaces the village while the focused hero works, waits for an answer or casts (a background
-    // command still runs after the turn); not in immersion mode
+    // command still runs after the turn); not in immersion mode; the compact copy shows the hero alone
     const busy = sel?.a.status === "working" || sel?.a.status === "blocked" || this.act.scene(sel?.a.address) === "incante";
     const dungeon = !imm && !hidden && busy;
     this.act.watch(cx, order, !dungeon, !this.live, imm || hidden);
     this.act.watchCtx(cx, imm || hidden ? null : sel?.a.address);
     this.dg.sync(cx, dungeon, { sel, act: this.act, live: this.live });
 
+    // the panel's buttons: compact mode (shrink to the left column, or grow back) and animations on/off
+    const buttons = [
+      iconButton(mini ? "agrandir" : "reduire", mini ? "zoom" : "reduire", () => setCompact(!mini), mini ? tr("grow") : tr("shrink")),
+      iconButton("animations", this.live ? "pause" : "play", // the icon shows what a click does
+         () => setShared("wocc.anim", !this.live), this.live ? tr("animOnTip") : tr("animOffTip")),
+    ];
+    if (mini) return this.compact(sel ?? units[0] ?? null, dungeon, buttons, { vw, nightK, nightHeroes });
+
     const scene = dungeon ? [] : this.village(units, sel, { vw, camX, imm, nightK, nightHeroes });
 
-    const panel = imm ? null : commandPanel(PANEL, this.minimap(units, vw), sel, { on: this.live, toggle: () => setShared("wocc.anim", !this.live) });
+    const panel = imm ? null : heroPanel({ width: PANEL, u: sel, info: this.cardInfo(sel, dungeon), buttons });
 
     return h_flex().id("place").size_full().bg(C.slate)
       .on_size_change((s, cx) => {

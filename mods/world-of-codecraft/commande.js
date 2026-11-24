@@ -6,7 +6,7 @@
 import { div } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { run } from "herdr";
-import { CLASSES, RACE_FR, QUEST, heroDesc } from "./kit.js";
+import { CLASSES, RACE_FR, QUEST, heroDesc, healthBar } from "./kit.js";
 import { gradient } from "./kit.js";
 import { t } from "./i18n.js";
 import { P, frame, frameT, bar, pic, txt, title, button, gem, mark, portraitCard, well } from "./ui.js";
@@ -58,6 +58,47 @@ export function commandPanel(width, minimap, sel, anim = null) {
       .when(Boolean(anim), (el) => el.child(toggle(anim)))
       .child(heading(t("selected")))
       .child(card(sel)))
+    .children(frame("cadre"));
+}
+
+// ------------------------------------------------------------------ compact mode
+
+const FT = frameT("cadre"); // carved frame thickness
+const FIN = 5; // the scene's thin iron frame
+/** The compact panel's scene box: its height, and how much narrower than the panel it is. */
+export const MINI_SCENE = { h: 190, inset: FT * 2 + FIN * 2 };
+
+/** The hero's card under the scene: name, class, action or state, health, spells and allies. */
+function miniCard(u, info) {
+  if (!u) return card(null);
+  const { a, h } = u;
+  const st = a.status;
+  return v_flex().flex_1().min_h(0).gap(3).px(4).pt(2)
+    .child(title(h.name, 19, P.goldHi).truncate())
+    .child(txt(heroDesc(h), 15, P.cream, 700).truncate())
+    .child(h_flex().gap(4).items_center().child(mark(st) ?? gem(st, true))
+      .child(txt(info?.action ?? QUEST[st]?.mot ?? st, 15, TONE[st] ?? P.idle, 800).truncate()))
+    .when(info?.ctx != null, (el) => el.child(healthBar(info.ctx, 90, t("hp"))))
+    .when(Boolean(info?.spells?.length), (el) => el.child(txt(t("djSpell", info.spells[info.spells.length - 1], info.spells.length), 14, "#b39cf0", 700).truncate()))
+    .when(info?.allies > 0, (el) => el.child(txt(t("djAllies", info.allies), 14, "#b39cf0", 700)))
+    .when(Boolean(a.tab_name), (el) => el.child(well(div().px(5).py(1).rounded(2), {}).child(txt(t("questTab", a.tab_name), 14, P.parch, 700).truncate())));
+}
+
+/** The bottom strip's left panel (place.js): the carved frame, "Selected unit" with small buttons (compact mode,
+ *  animations), the hero's card, and in compact mode the hero's scene (sw x sh) in a thin iron frame above it.
+ *  `width` null fills the parent (compact block); a number is a fixed column beside the village. */
+export function heroPanel({ width = null, scene = null, sw = 0, sh = 0, u, info, buttons = [] }) {
+  return div().id("panneau").relative().bg(P.leather)
+    .when(width == null, (el) => el.size_full()).when(width != null, (el) => el.flex_none().w(width).h_full())
+    .child(gradient("#2b1e16", "#100b0a", 165))
+    .child(v_flex().absolute().left(FT).right(FT).top(FT).bottom(FT).gap(6)
+      .child(div().relative().flex_none()
+        .child(heading(t("selected")))
+        .child(h_flex().absolute().right(4).top(4).gap(3).children(buttons)))
+      .when(Boolean(scene), (el) => el.child(div().relative().flex_none().p(FIN).bg("#0c0a0e")
+        .child(div().relative().w(sw).h(sh).overflow_hidden().bg("#14121a").child(scene))
+        .children(frame("fin"))))
+      .child(miniCard(u, info)))
     .children(frame("cadre"));
 }
 

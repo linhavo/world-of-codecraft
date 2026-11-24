@@ -69,6 +69,22 @@
               }
             },
             {
+              "id": "place-mini",
+              "type": "block",
+              "size": {
+                "px": 400
+              },
+              "content": {
+                "mod": "world-of-codecraft",
+                "props": {
+                  "role": "place",
+                  "mini": true
+                }
+              },
+              "background": "#120c0e",
+              "hidden": true
+            },
+            {
               "id": "commande",
               "type": "block",
               "size": {
