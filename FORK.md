@@ -56,6 +56,7 @@ This fork of [kevinpardo/world-of-codecraft](https://github.com/kevinpardo/world
 
 **Data the mod reads,** from `~/.local/state/world-of-codecraft/`:
 - `<terminal>.json`: activity, written by `integrations/claude-code/wocc-activity.py`. It now also records `allies: [{id, type}]`.
+- Agents on another machine (address `machine/t5`): the mod reads `t5.json` and `t5-ctx.json` in that machine's own `~/.local/state/world-of-codecraft/` through herdr-core. That machine needs the hooks from the owner's dotfiles.
 - `<terminal>-ctx.json`: `{"used", "size", "t"}` (context tokens in use, window size), written by a status-line wrapper. The wrapper lives in the owner's dotfiles (`claude/hooks/wocc-statusline.py`), not in this repo.
 
 ## Update and rebuild
