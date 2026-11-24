@@ -11,6 +11,7 @@ This fork of [kevinpardo/world-of-codecraft](https://github.com/kevinpardo/world
 - **Buildings by district:** each district (space, in `spaces()` order) owns one building: tower, forge, temple, barn, barracks, market. A seventh district shares the tower again. All heroes of a district stand at its building, whatever their class or status. A banner shows the district name above the heroes.
 - **Dungeon trigger:** the dungeon shows automatically while the focused agent works. It is not a click or a key. Immersion mode keeps the village.
 - **Dungeon animation:** one `cx.timer.every` at up to 6 fps steps every sprite and effect. It calls `notify` only when a visible frame changes. The dungeon uses no `.loop()`.
+- **Scene switching:** a new scene must be asked for 3 s and the current one must have run 6 s, so quick tool loops don't flicker. Compacting, tests and the end of work switch at once.
 - **Scenes follow the activity hook:**
   - thinking: a "…" bubble;
   - reading: a tome at the shelf;
