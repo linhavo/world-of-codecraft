@@ -20,6 +20,14 @@
 import { home, readTextFile } from "herdr";
 import { hash, heroOf } from "./kit.js";
 
+/** Reads an agent's state file: on its own machine for "machine/t5" addresses, where the hooks write it. */
+async function readState(addr, suffix) {
+  const cut = addr.lastIndexOf("/");
+  const name = `.local/state/world-of-codecraft/${addr.slice(cut + 1)}${suffix}`;
+  const text = cut < 0 ? await readTextFile(`${home()}/${name}`) : await readTextFile(name, { on: addr.slice(0, cut) });
+  return JSON.parse(text ?? "null");
+}
+
 const POLL = 1000;
 const STABLE = 3000; // the new scene must be asked for this long
 const HOLD = 6000; // and the current one must have lasted this long, so quick tool loops don't flicker
@@ -71,7 +79,7 @@ export class Activites {
     if (!addr) return;
     const read = async (acx) => {
       let c = null;
-      try { c = JSON.parse((await readTextFile(`${home()}/.local/state/world-of-codecraft/${addr}-ctx.json`)) ?? "null"); } catch { c = null; }
+      try { c = await readState(addr, "-ctx.json"); } catch { c = null; }
       const before = this.ctxUsed(addr);
       if (c && typeof c.used === "number") this.ctxs.set(addr, c); else this.ctxs.delete(addr);
       if (this.ctxUsed(addr) !== before) acx.notify();
@@ -105,12 +113,11 @@ export class Activites {
     let changed = false;
     try {
       const now = Date.now();
-      const dir = `${home()}/.local/state/world-of-codecraft`;
       for (const a of this.list ?? []) {
         if (a.demoAct) { changed = this.apply(a, a.demoAct, now) || changed; continue; }
         if (a.status !== "working") { changed = this.apply(a, null, now) || changed; continue; }
         let s = null;
-        try { s = JSON.parse((await readTextFile(`${dir}/${a.address}.json`)) ?? "null"); } catch { s = null; }
+        try { s = await readState(a.address, ".json"); } catch { s = null; }
         const old = this.files.get(a.address);
         if (JSON.stringify(old) !== JSON.stringify(s)) { this.files.set(a.address, s); changed = true; }
         changed = this.apply(a, s, now) || changed;
