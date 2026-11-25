@@ -19,6 +19,12 @@ const ORDER = ["blocked", "done", "working", "idle"];
 const COLOR = { blocked: P.blocked, done: P.done, working: P.working, idle: P.idle };
 const STATE = new Proxy({}, { get: (_o, k) => ({ mot: t("board")[k], color: COLOR[k] }) });
 
+/** The conversation's name: the title the agent gives its terminal, without spinner marks; null when it only names the program. */
+function convo(a) {
+  const title = a?.title?.replace(/^[^\p{L}\p{N}]+/u, "").trim();
+  return title && title !== a.program?.name ? title : null;
+}
+
 export default class Tableau {
   heading(text, extra) {
     return div().relative().flex_none().h(30)
@@ -41,14 +47,19 @@ export default class Tableau {
   quest(sp, tab, heroes) {
     const st = tab.status;
     const on = sp.active && tab.active;
-    const name = tab.named ? tab.name : (heroes[0]?.title && heroes[0].title !== heroes[0].program?.name ? heroes[0].title : t("questN", tab.index));
+    const name = convo(heroes[0]) ?? (tab.named ? tab.name : t("questN", tab.index));
+    const who = heroes.length ? heroes.map((a) => heroOf(a.address, a.program).name).slice(0, 2).join(", ") + (heroes.length > 2 ? ` +${heroes.length - 2}` : "") : null;
     const fg = on ? P.ink2 : st === "blocked" ? "#ffd8cc" : P.cream;
-    let line = h_flex().id(`quete-${tab.id}`).relative().h(28).pl(5).pr(4).gap(6).items_center().rounded(2).cursor_pointer()
+    let line = h_flex().id(`quete-${tab.id}`).relative().h(who ? 44 : 28).pl(5).pr(4).gap(6).items_center().rounded(2).cursor_pointer()
       .bg(on ? P.parch : st === "blocked" ? "#3a1216" : "#00000000").hover((s) => s.bg(on ? P.parch : "#ffffff10"))
       .tooltip(t("questTip", tab.index, tab.name, tab.panes))
       .on_click(() => { if (!sp.active) run("space.select", { id: sp.id }); run("tab.select", { id: tab.id }); })
       .child(div().w(16).flex_none().flex().justify_center().child(mark(st) ?? (st ? gem(st, true) : div().size(5).rounded(1).bg(on ? P.inkSoft : P.faint))))
-      .child(txt(clip(name, 32), 15, fg, on ? 800 : 700).flex_1().min_w(0).truncate())
+      .child(who
+        ? v_flex().flex_1().min_w(0).gap(0)
+          .child(txt(who, 15, fg, on ? 800 : 700).line_height(1.1).truncate())
+          .child(txt(clip(name, 32), 13, on ? P.inkSoft : P.muted, 700).line_height(1.1).truncate())
+        : txt(clip(name, 32), 15, fg, on ? 800 : 700).flex_1().min_w(0).truncate())
       .when(tab.panes > 1, (e) => e.child(txt(`×${tab.panes}`, 14, on ? P.inkSoft : P.dim, 700).flex_none()))
       .child(h_flex().flex_none().gap(2).children(heroes.slice(0, 3).map((a) => portrait(heroOf(a.address, a.program), 22))))
       .when(heroes.length > 3, (e) => e.child(txt(`+${heroes.length - 3}`, 14, on ? P.inkSoft : P.dim, 700).flex_none()));
